@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ECHO//SHIFT — Prompt & Play</title>
+<style>
+:root{--bg:#070a12;--panel:#0d1322;--line:#27324d;--text:#eef3ff;--muted:#91a0bd;--accent:#72f1c4;--danger:#ff6b8a;--gold:#ffd166}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 50% 0,#16213c 0,#070a12 48%);color:var(--text);font-family:Inter,system-ui,Arial,sans-serif;min-height:100vh;display:flex;align-items:center;justify-content:center}
+.wrap{width:min(1100px,96vw);padding:18px}.top{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}.brand{font-weight:900;letter-spacing:2px}.brand span{color:var(--accent)}.hud{display:flex;gap:8px;flex-wrap:wrap}.pill{border:1px solid var(--line);background:#0b1020cc;border-radius:999px;padding:8px 12px;font-size:13px;color:var(--muted)}.pill b{color:var(--text)}
+.panel{background:linear-gradient(180deg,#0e1526f2,#090e1bf2);border:1px solid var(--line);border-radius:22px;box-shadow:0 20px 70px #0008;overflow:hidden}
+.screen{padding:22px}.intro{display:grid;grid-template-columns:1.25fr .75fr;gap:18px}.hero{padding:26px;border:1px solid #2d3957;border-radius:18px;background:linear-gradient(135deg,#111b31,#0a0f1d)}h1{font-size:clamp(38px,7vw,76px);line-height:.9;margin:0 0 14px;letter-spacing:-3px}.hero p{color:var(--muted);line-height:1.6;max-width:650px}.how{padding:22px;border:1px solid var(--line);border-radius:18px}.how h3{margin-top:0}.how li{margin:11px 0;color:#bdc7da}.btn{border:0;border-radius:12px;padding:12px 18px;font-weight:800;cursor:pointer;background:var(--accent);color:#06100d}.btn.secondary{background:#17213a;color:var(--text);border:1px solid #31405f}.btn:active{transform:translateY(1px)}.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px}
+.game{display:none}.gamegrid{display:grid;grid-template-columns:1fr 250px;gap:14px}.board{position:relative;background:#050813;border:1px solid #283452;border-radius:18px;overflow:hidden;min-height:560px}.canvas{width:100%;height:560px;display:block}.side{padding:18px;border:1px solid var(--line);border-radius:18px;background:#0a1020}.side h3{margin:0 0 10px}.side p,.side li{color:var(--muted);line-height:1.5;font-size:14px}.meter{height:9px;background:#1b2438;border-radius:99px;overflow:hidden;margin:8px 0 16px}.meter i{display:block;height:100%;width:100%;background:var(--accent);transition:width .2s}.legend{display:grid;gap:8px;margin-top:14px}.key{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:13px}.dot{width:11px;height:11px;border-radius:50%;background:var(--accent)}.dot.red{background:var(--danger)}.dot.gold{background:var(--gold)}.msg{min-height:45px;color:#d9e2f6;font-size:14px;margin:10px 0}.overlay{position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:#03050acc;backdrop-filter:blur(5px);z-index:3}.modal{width:min(480px,90%);text-align:center;padding:28px;border:1px solid #344466;border-radius:20px;background:#0b1221}.modal h2{font-size:36px;margin:0 0 8px}.small{font-size:12px;color:var(--muted)}@media(max-width:800px){.intro,.gamegrid{grid-template-columns:1fr}.canvas,.board{min-height:500px}.canvas{height:500px}.side{order:-1}.hud{display:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div class="brand">ECHO<span>//</span>SHIFT</div>
+    <div class="hud">
+      <div class="pill">LEVEL <b id="level">1</b>/6</div>
+      <div class="pill">SCORE <b id="score">0</b></div>
+      <div class="pill">SHIFTS <b id="shifts">0</b></div>
+    </div>
+  </div>
+
+  <section class="panel screen intro" id="intro">
+    <div class="hero">
+      <div class="small">A BROWSER GAME BUILT WITH PROMPT-DRIVEN DEVELOPMENT</div>
+      <h1>ECHO<br><span style="color:var(--accent)">SHIFT</span></h1>
+      <p>You are a signal runner trapped inside a broken simulation. The world has two states: <b>NOW</b> and <b>ECHO</b>. Every shift changes the map. Reach the exit while collecting signal shards — but obstacles can move when reality changes.</p>
+      <div class="actions">
+        <button class="btn" id="start">START RUN</button>
+        <button class="btn secondary" id="howBtn">HOW TO PLAY</button>
+      </div>
+      <p class="small">No downloads. No external assets. Works offline in a modern browser.</p>
+    </div>
+    <div class="how" id="how">
+      <h3>Mission</h3>
+      <ul>
+        <li>Move with <b>WASD</b> or <b>arrow keys</b>.</li>
+        <li>Press <b>Space</b> to SHIFT between NOW and ECHO.</li>
+        <li>Collect every cyan shard, then reach the portal.</li>
+        <li>Red nodes are hazards. Touching one costs energy.</li>
+        <li>Each level changes the rules slightly.</li>
+      </ul>
+      <div class="legend">
+        <div class="key"><i class="dot"></i> You / shard</div>
+        <div class="key"><i class="dot gold"></i> Exit portal</div>
+        <div class="key"><i class="dot red"></i> Hazard</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel screen game" id="game">
+    <div class="gamegrid">
+      <div class="board">
+        <canvas id="c"></canvas>
+        <div class="overlay" id="overlay">
+          <div class="modal">
+            <div class="small" id="overSmall">RUN COMPLETE</div>
+            <h2 id="overTitle">LEVEL CLEARED</h2>
+            <p id="overText"></p>
+            <button class="btn" id="next">CONTINUE</button>
+          </div>
+        </div>
+      </div>
+      <aside class="side">
+        <h3 id="levelName">Level 1</h3>
+        <div class="small">ENERGY</div><div class="meter"><i id="energy"></i></div>
+        <div class="msg" id="msg">Collect all signal shards.</div>
+        <p><b>SHIFT:</b> Space</p>
+        <p><b>MOVE:</b> WASD / Arrows</p>
+        <p><b>PAUSE:</b> P</p>
+        <div class="legend">
+          <div class="key"><i class="dot"></i> Shard</div>
+          <div class="key"><i class="dot gold"></i> Portal</div>
+          <div class="key"><i class="dot red"></i> Hazard</div>
+        </div>
+        <div class="actions"><button class="btn secondary" id="restart">RESTART</button><button class="btn secondary" id="menu">MENU</button></div>
+      </aside>
+    </div>
+  </section>
+</div>
+
+<script>
+const canvas=document.getElementById('c'),ctx=canvas.getContext('2d');
+const levelEl=document.getElementById('level'),scoreEl=document.getElementById('score'),shiftsEl=document.getElementById('shifts'),energyEl=document.getElementById('energy'),nameEl=document.getElementById('levelName'),msgEl=document.getElementById('msg');
+const intro=document.getElementById('intro'),game=document.getElementById('game'),overlay=document.getElementById('overlay');
+let W,H,cell=44,keys={},running=false,paused=false,last=0,level=0,score=0,shifts=0,energy=100,world='NOW',player,shards,portal,hazards,particles,flash=0;
+
+const levels=[
+{name:'First Echo',w:9,h:9,haz:2,shards:2,rule:'The ECHO world reveals the safe route.'},
+{name:'Moving Memory',w:10,h:9,haz:3,shards:3,rule:'Hazards drift whenever you SHIFT.'},
+{name:'Split Signal',w:11,h:10,haz:4,shards:3,rule:'Some walls exist in only one world.'},
+{name:'False Exit',w:12,h:10,haz:5,shards:4,rule:'The portal changes position after every shift.'},
+{name:'Overload',w:13,h:10,haz:6,shards:5,rule:'Energy drains slowly. Move decisively.'},
+{name:'The Source',w:14,h:11,haz:7,shards:6,rule:'Collect the core shards and escape the simulation.'}
+];
+
+function resize(){const r=canvas.parentElement.getBoundingClientRect();W=Math.floor(r.width);H=canvas.height=560;canvas.width=W;cell=Math.min((W-24)/levels[level].w,(H-24)/levels[level].h);}
+window.addEventListener('resize',resize);
+
+function rand(n){return Math.floor(Math.random()*n)}
+function pos(x,y){return {x:x*cell+cell/2,y:y*cell+cell/2}}
+function blocked(x,y){
+ if(x<0||y<0||x>=levels[level].w||y>=levels[level].h)return true;
+ if((x+y*3+level)%7===0 && world==='NOW' && level>=2)return true;
+ if((x*2+y+level)%11===0 && world==='ECHO' && level>=2)return true;
+ return false;
+}
+function freeSpot(used){
+ for(let i=0;i<500;i++){let x=rand(levels[level].w),y=rand(levels[level].h),k=x+','+y;if(!blocked(x,y)&&!used.has(k)){used.add(k);return {x,y}}}
+ return {x:1,y:1};
+}
+function newLevel(){
+ const L=levels[level]; world='NOW';energy=100;particles=[];shards=[];hazards=[];
+ let used=new Set(['1,1']); player={x:1,y:1,px:1,py:1};
+ portal=freeSpot(used);
+ for(let i=0;i<L.shards;i++) shards.push(freeSpot(used));
+ for(let i=0;i<L.haz;i++) hazards.push({...freeSpot(used),vx:Math.random()>.5?1:-1,vy:Math.random()>.5?1:-1});
+ levelEl.textContent=level+1;nameEl.textContent='Level '+(level+1)+' — '+L.name;msgEl.textContent=L.rule;
+ overlay.style.display='none';running=true;paused=false;resize();
+}
+function start(){intro.style.display='none';game.style.display='block';level=0;score=0;shifts=0;newLevel();requestAnimationFrame(loop)}
+function move(dx,dy){
+ if(!running||paused)return;
+ let nx=player.x+dx,ny=player.y+dy;
+ if(blocked(nx,ny))return;
+ player.px=player.x;player.py=player.y;player.x=nx;player.y=ny;
+ score=Math.max(0,score+1);check();
+}
+function shift(){
+ if(!running||paused)return;
+ world=world==='NOW'?'ECHO':'NOW';shifts++;shiftsEl.textContent=shifts;
+ if(level>=1)hazards.forEach(h=>{h.x=Math.max(0,Math.min(levels[level].w-1,h.x+h.vx));h.y=Math.max(0,Math.min(levels[level].h-1,h.y+h.vy));});
+ if(level>=3)portal=freeSpot(new Set([player.x+','+player.y]));
+ flash=1;check();
+}
+function check(){
+ shards=shards.filter(s=>{
+   if(s.x===player.x&&s.y===player.y){score+=50;burst(player.x,player.y);return false} return true;
+ });
+ for(const h of hazards) if(h.x===player.x&&h.y===player.y){energy-=20;h.x=0;h.y=0;burst(player.x,player.y,true)}
+ if(shards.length===0 && portal.x===player.x && portal.y===player.y) clearLevel();
+ energyEl.style.width=Math.max(0,energy)+'%';
+ if(energy<=0) fail();
+}
+function clearLevel(){
+ running=false;score+=Math.max(0,Math.floor(energy));scoreEl.textContent=score;
+ if(level===levels.length-1){document.getElementById('overSmall').textContent='SIMULATION COMPLETE';document.getElementById('overTitle').textContent='YOU FOUND THE SOURCE';document.getElementById('overText').textContent='Final score: '+score+' • '+shifts+' shifts. The broken simulation is stable again.';document.getElementById('next').textContent='PLAY AGAIN'}
+ else{document.getElementById('overSmall').textContent='LEVEL '+(level+1)+' CLEAR';document.getElementById('overTitle').textContent='REALITY SHIFTED';document.getElementById('overText').textContent='Bonus energy converted to score. Prepare for '+levels[level+1].name+'.';document.getElementById('next').textContent='NEXT LEVEL'}
+ overlay.style.display='flex';
+}
+function fail(){running=false;document.getElementById('overSmall').textContent='SIGNAL LOST';document.getElementById('overTitle').textContent='ENERGY DEPLETED';document.getElementById('overText').textContent='Your run ended at level '+(level+1)+'. Restart and try a different shift route.';document.getElementById('next').textContent='RETRY LEVEL';overlay.style.display='flex'}
+function burst(x,y,red=false){for(let i=0;i<12;i++)particles.push({x:x*cell+cell/2,y:y*cell+cell/2,vx:(Math.random()-.5)*4,vy:(Math.random()-.5)*4,a:1,red})}
+function draw(){
+ ctx.clearRect(0,0,W,H);ctx.fillStyle='#050813';ctx.fillRect(0,0,W,H);
+ const L=levels[level],ox=(W-L.w*cell)/2,oy=(H-L.h*cell)/2;
+ ctx.save();ctx.translate(ox,oy);
+ for(let y=0;y<L.h;y++)for(let x=0;x<L.w;x++){
+   const b=blocked(x,y);ctx.fillStyle=b?(world==='NOW'?'#10172a':'#16132b'):(world==='NOW'?'#0b1220':'#101426');
+   ctx.fillRect(x*cell+2,y*cell+2,cell-4,cell-4);
+   ctx.strokeStyle=b?'#29334d':'#17223a';ctx.strokeRect(x*cell+2,y*cell+2,cell-4,cell-4);
+ }
+ const pp=pos(portal.x,portal.y);ctx.shadowBlur=18;ctx.shadowColor='#ffd166';ctx.fillStyle='#ffd166';ctx.beginPath();ctx.arc(pp.x,pp.y,Math.max(8,cell*.2),0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;
+ for(const s of shards){let p=pos(s.x,s.y);ctx.shadowBlur=15;ctx.shadowColor='#72f1c4';ctx.fillStyle='#72f1c4';ctx.beginPath();ctx.moveTo(p.x,p.y-cell*.2);ctx.lineTo(p.x+cell*.16,p.y);ctx.lineTo(p.x,p.y+cell*.2);ctx.lineTo(p.x-cell*.16,p.y);ctx.closePath();ctx.fill();ctx.shadowBlur=0}
+ for(const h of hazards){let p=pos(h.x,h.y);ctx.fillStyle='#ff6b8a';ctx.beginPath();ctx.arc(p.x,p.y,cell*.17,0,Math.PI*2);ctx.fill();ctx.strokeStyle='#ffb1c1';ctx.stroke()}
+ let p=pos(player.x,player.y);ctx.shadowBlur=20;ctx.shadowColor='#72f1c4';ctx.fillStyle='#eafff8';ctx.beginPath();ctx.arc(p.x,p.y,cell*.2,0,Math.PI*2);ctx.fill();ctx.fillStyle='#72f1c4';ctx.beginPath();ctx.arc(p.x,p.y,cell*.11,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;
+ ctx.fillStyle='#7182a5';ctx.font='12px system-ui';ctx.fillText(world,10,18);
+ ctx.restore();
+ for(const q of particles){ctx.globalAlpha=q.a;ctx.fillStyle=q.red?'#ff6b8a':'#72f1c4';ctx.fillRect(q.x,q.y,4,4);q.x+=q.vx;q.y+=q.vy;q.a-=.025}ctx.globalAlpha=1;
+ if(flash>0){ctx.fillStyle=world==='NOW'?'#72f1c411':'#b68cff11';ctx.fillRect(0,0,W,H);flash-=.05}
+}
+function loop(t){if(t-last>16){draw();last=t;scoreEl.textContent=score}if(game.style.display!=='none')requestAnimationFrame(loop)}
+document.addEventListener('keydown',e=>{
+ keys[e.key.toLowerCase()]=true;
+ if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight',' '].includes(e.key))e.preventDefault();
+ if(e.key===' ')shift();
+ if(e.key.toLowerCase()==='p')paused=!paused;
+});
+document.addEventListener('keyup',e=>keys[e.key.toLowerCase()]=false);
+setInterval(()=>{if(!running||paused)return;let dx=0,dy=0;if(keys.w||keys.arrowup)dy=-1;if(keys.s||keys.arrowdown)dy=1;if(keys.a||keys.arrowleft)dx=-1;if(keys.d||keys.arrowright)dx=1;if(dx||dy){move(dx,dy);Object.keys(keys).forEach(k=>{if(k.startsWith('arrow')||'wasd'.includes(k))keys[k]=false})}},120);
+document.getElementById('start').onclick=start;
+document.getElementById('howBtn').onclick=()=>document.getElementById('how').scrollIntoView({behavior:'smooth'});
+document.getElementById('restart').onclick=newLevel;
+document.getElementById('menu').onclick=()=>{game.style.display='none';intro.style.display='grid';running=false};
+document.getElementById('next').onclick=()=>{if(level===levels.length-1){level=0;score=0;shifts=0;newLevel()}else{level++;newLevel()}};
+</script>
+</body>
+</html>
